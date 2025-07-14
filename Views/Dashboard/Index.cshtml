@@ -1,0 +1,532 @@
+@{
+    ViewData["Title"] = "Vehicle Monitoring Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<!-- Top System Bar -->
+<div class="top-bar">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1>
+                <i class="fas fa-radar-dish"></i>
+                FMC650 Industrial Vehicle Monitoring System
+            </h1>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="system-status">
+                <div class="status-dot"></div>
+                <span>System Online</span>
+                <span class="mx-2">|</span>
+                <span id="systemTime"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Metrics Dashboard -->
+<div class="dashboard-card">
+    <div class="card-header-industrial">
+        <div>
+            <h2 class="card-title">
+                <i class="fas fa-tachometer-alt"></i>
+                Real-Time Vehicle Metrics
+            </h2>
+            <p class="card-subtitle">Live telemetry data</p>
+        </div>
+        <div id="connectionStatus" class="status-indicator-industrial status-online">
+            <div class="status-dot-small"></div>
+            Connected
+        </div>
+    </div>
+    
+    <div class="metrics-grid" id="metricsContainer">
+        <!-- Metrics will be populated here -->
+    </div>
+    
+    <div class="d-flex justify-content-between align-items-center">
+        <div id="lastUpdated" class="text-secondary">
+            <i class="fas fa-clock me-1"></i>
+            Last updated: Never
+        </div>
+        <div class="loading-spinner d-none" id="loadingSpinner"></div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Vehicle Location Map -->
+    <div class="col-lg-8">
+        <div class="dashboard-card">
+            <div class="card-header-industrial">
+                <div>
+                    <h2 class="card-title">
+                        <i class="fas fa-map-marked-alt"></i>
+                        Vehicle Location Tracking
+                    </h2>
+                    <p class="card-subtitle">GPS coordinates and positioning</p>
+                </div>
+            </div>
+            
+            <div class="map-container-industrial">
+                <div id="vehicleMap"></div>
+                <div class="map-placeholder d-none" id="mapPlaceholder">
+                    <i class="fas fa-satellite"></i>
+                    <h4>Satellite Map Integration</h4>
+                    <p id="coordinates" class="mb-0">Coordinates: Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vehicle Status Panel -->
+    <div class="col-lg-4">
+        <div class="dashboard-card">
+            <div class="card-header-industrial">
+                <div>
+                    <h2 class="card-title">
+                        <i class="fas fa-car-battery"></i>
+                        Vehicle Status
+                    </h2>
+                    <p class="card-subtitle">System diagnostics</p>
+                </div>
+            </div>
+            
+            <div id="vehicleDetails">
+                <!-- Vehicle details will be populated here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Stream Table -->
+<div class="dashboard-card">
+    <div class="card-header-industrial">
+        <div>
+            <h2 class="card-title">
+                <i class="fas fa-stream"></i>
+                Live Data Stream
+            </h2>
+            <p class="card-subtitle">Historical telemetry records</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary">Live</span>
+            <span class="text-secondary" id="recordCount">0 records</span>
+        </div>
+    </div>
+    
+    <div class="data-table-industrial">
+        <table class="table table-dark table-striped mb-0">
+            <thead>
+                <tr>
+                    <th><i class="fas fa-clock me-1"></i>Timestamp</th>
+                    <th><i class="fas fa-tachometer-alt me-1"></i>Speed</th>
+                    <th><i class="fas fa-compass me-1"></i>Heading</th>
+                    <th><i class="fas fa-gas-pump me-1"></i>Fuel</th>
+                    <th><i class="fas fa-cog me-1"></i>Engine Hrs</th>
+                    <th><i class="fas fa-power-off me-1"></i>Ignition</th>
+                </tr>
+            </thead>
+            <tbody id="dataTable">
+                <!-- Data rows will be populated here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let dataHistory = [];
+    const maxHistoryItems = 10;
+    
+    // Map variables
+    let vehicleMap = null;
+    let vehicleMarker = null;
+    let vehicleTrail = [];
+    let isMapInitialized = false;
+    const maxTrailPoints = 20;
+
+    // Initialize map
+    function initializeMap() {
+        try {
+            // Initialize Leaflet map
+            vehicleMap = L.map('vehicleMap', {
+                center: [0, 0], // Will be updated with actual coordinates
+                zoom: 15,
+                zoomControl: true,
+                attributionControl: false
+            });
+
+            // Add satellite tile layer
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 18,
+                attribution: 'Satellite imagery'
+            }).addTo(vehicleMap);
+
+            // Add street overlay for better context
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                opacity: 0.3,
+                attribution: ''
+            }).addTo(vehicleMap);
+
+            isMapInitialized = true;
+            console.log('Map initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize map:', error);
+            showMapError();
+        }
+    }
+
+    function showMapError() {
+        document.getElementById('mapPlaceholder').classList.remove('d-none');
+        document.getElementById('mapPlaceholder').innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <h4>Map Unavailable</h4>
+            <p class="mb-0">Unable to load map interface</p>
+        `;
+    }
+
+    function updateVehicleLocation(data) {
+        if (!isMapInitialized || !data.latitude || !data.longitude) return;
+
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+
+        // Update map center and create/update marker
+        if (vehicleMarker) {
+            vehicleMarker.setLatLng([lat, lng]);
+        } else {
+            // Create custom marker
+            const vehicleIcon = L.divIcon({
+                className: 'vehicle-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            vehicleMarker = L.marker([lat, lng], { icon: vehicleIcon }).addTo(vehicleMap);
+        }
+
+        // Update popup with vehicle information
+        const popupContent = `
+            <div style="color: var(--text-primary);">
+                <strong>${data.deviceId}</strong><br>
+                <small>Speed: ${data.speed} km/h</small><br>
+                <small>Heading: ${data.heading}°</small><br>
+                <small>Fuel: ${Math.round(data.fuel)}%</small><br>
+                <small>Updated: ${new Date(data.timestamp).toLocaleTimeString()}</small>
+            </div>
+        `;
+        vehicleMarker.bindPopup(popupContent);
+
+        // Add to trail
+        vehicleTrail.push([lat, lng]);
+        if (vehicleTrail.length > maxTrailPoints) {
+            vehicleTrail.shift();
+        }
+
+        // Draw trail if we have more than one point
+        if (vehicleTrail.length > 1) {
+            // Remove existing trail
+            vehicleMap.eachLayer(layer => {
+                if (layer instanceof L.Polyline && layer.options.className === 'vehicle-trail') {
+                    vehicleMap.removeLayer(layer);
+                }
+            });
+
+            // Add new trail
+            L.polyline(vehicleTrail, {
+                className: 'vehicle-trail',
+                color: '#3182CE',
+                weight: 3,
+                opacity: 0.7
+            }).addTo(vehicleMap);
+        }
+
+        // Center map on vehicle location
+        vehicleMap.setView([lat, lng], vehicleMap.getZoom());
+    }
+
+    // Update system time
+    function updateSystemTime() {
+        const now = new Date();
+        document.getElementById('systemTime').textContent = now.toLocaleTimeString();
+    }
+
+    function updateDashboard() {
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        loadingSpinner.classList.remove('d-none');
+        
+        fetch('/Dashboard/GetData')
+            .then(response => response.json())
+            .then(data => {
+                loadingSpinner.classList.add('d-none');
+                
+                if (data.status === 'disabled') {
+                    showDisabledMessage(data.message);
+                } else if (data.status === 'no_data') {
+                    showNoDataMessage(data.message);
+                } else if (data.status === 'error') {
+                    showErrorMessage(data.message);
+                } else {
+                    // Real data received
+                    updateConnectionStatus('online');
+                    updateMetrics(data);
+                    updateVehicleDetails(data);
+                    updateVehicleLocation(data); // Add map update
+                    updateDataTable(data);
+                    updateLastUpdated();
+                }
+            })
+            .catch(error => {
+                loadingSpinner.classList.add('d-none');
+                console.error('Error fetching data:', error);
+                updateConnectionStatus('offline');
+                showErrorMessage('Failed to fetch data from server');
+            });
+    }
+
+    function updateConnectionStatus(status) {
+        const statusElement = document.getElementById('connectionStatus');
+        if (status === 'online') {
+            statusElement.className = 'status-indicator-industrial status-online';
+            statusElement.innerHTML = '<div class="status-dot-small"></div>Connected';
+        } else {
+            statusElement.className = 'status-indicator-industrial status-offline';
+            statusElement.innerHTML = '<div class="status-dot-small"></div>Disconnected';
+        }
+    }
+
+    function showNoDataMessage(message) {
+        updateConnectionStatus('offline');
+        const noDataHtml = `
+            <div class="col-12">
+                <div class="alert-industrial alert-info-industrial">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-database fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-1">No Data Available</h5>
+                            <p class="mb-0">${message}</p>
+                            <small class="text-secondary">Waiting for telemetry data from vehicle systems...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('metricsContainer').innerHTML = noDataHtml;
+        
+        // Clear other sections
+        document.getElementById('vehicleDetails').innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-signal fa-3x mb-3 text-secondary"></i>
+                <h5>Awaiting Signal</h5>
+                <p class="text-secondary mb-0">Vehicle telemetry offline</p>
+            </div>
+        `;
+        document.getElementById('dataTable').innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <i class="fas fa-satellite-dish me-2"></i>
+                    No telemetry data received
+                </td>
+            </tr>
+        `;
+        document.getElementById('coordinates').textContent = 'Coordinates: Signal unavailable';
+        document.getElementById('recordCount').textContent = '0 records';
+        
+        // Show map placeholder
+        if (isMapInitialized) {
+            document.getElementById('mapPlaceholder').classList.remove('d-none');
+            document.getElementById('mapPlaceholder').innerHTML = `
+                <i class="fas fa-satellite-dish"></i>
+                <h4>GPS Signal Lost</h4>
+                <p class="mb-0">Waiting for location data...</p>
+            `;
+        }
+    }
+
+    function showDisabledMessage(message) {
+        updateConnectionStatus('offline');
+        const disabledHtml = `
+            <div class="col-12">
+                <div class="alert-industrial alert-warning-industrial">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-1">Data Visualization Disabled</h5>
+                            <p class="mb-0">${message}</p>
+                            <small class="text-secondary">System monitoring temporarily disabled</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('metricsContainer').innerHTML = disabledHtml;
+        
+        // Clear other sections with disabled styling
+        document.getElementById('vehicleDetails').innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-ban fa-3x mb-3 text-warning"></i>
+                <h5>Monitoring Disabled</h5>
+                <p class="text-secondary mb-0">Data visualization turned off</p>
+            </div>
+        `;
+        document.getElementById('dataTable').innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <i class="fas fa-ban me-2"></i>
+                    Data monitoring disabled
+                </td>
+            </tr>
+        `;
+        document.getElementById('coordinates').textContent = 'Coordinates: Monitoring disabled';
+        document.getElementById('recordCount').textContent = 'Disabled';
+        
+        // Show disabled map placeholder
+        if (isMapInitialized) {
+            document.getElementById('mapPlaceholder').classList.remove('d-none');
+            document.getElementById('mapPlaceholder').innerHTML = `
+                <i class="fas fa-ban"></i>
+                <h4>Location Tracking Disabled</h4>
+                <p class="mb-0">GPS monitoring turned off</p>
+            `;
+        }
+    }
+
+    function showErrorMessage(message) {
+        updateConnectionStatus('offline');
+        const errorHtml = `
+            <div class="col-12">
+                <div class="alert-industrial alert-danger-industrial">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-circle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-1">System Error</h5>
+                            <p class="mb-0">${message}</p>
+                            <small class="text-secondary">Check system connectivity and try again</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('metricsContainer').innerHTML = errorHtml;
+    }
+
+    function updateMetrics(data) {
+        const metricsHtml = `
+            <div class="metric-card-industrial">
+                <div class="metric-value-industrial">${data.speed}</div>
+                <div class="metric-label-industrial">
+                    <i class="fas fa-tachometer-alt metric-icon"></i>
+                    Speed (km/h)
+                </div>
+            </div>
+            <div class="metric-card-industrial">
+                <div class="metric-value-industrial">${Math.round(data.fuel)}<span style="font-size: 1rem;">%</span></div>
+                <div class="metric-label-industrial">
+                    <i class="fas fa-gas-pump metric-icon"></i>
+                    Fuel Level
+                </div>
+            </div>
+            <div class="metric-card-industrial">
+                <div class="metric-value-industrial">${data.heading}<span style="font-size: 1rem;">°</span></div>
+                <div class="metric-label-industrial">
+                    <i class="fas fa-compass metric-icon"></i>
+                    Heading
+                </div>
+            </div>
+            <div class="metric-card-industrial">
+                <div class="metric-value-industrial">${data.engineHours.toLocaleString()}</div>
+                <div class="metric-label-industrial">
+                    <i class="fas fa-cog metric-icon"></i>
+                    Engine Hours
+                </div>
+            </div>
+        `;
+        document.getElementById('metricsContainer').innerHTML = metricsHtml;
+    }
+
+    function updateVehicleDetails(data) {
+        const ignitionStatus = data.ignitionStatus ? 'Online' : 'Offline';
+        const statusClass = data.ignitionStatus ? 'status-online' : 'status-offline';
+        
+        const detailsHtml = `
+            <div class="mb-3 pb-3 border-bottom border-secondary">
+                <label class="text-secondary small text-uppercase">Device ID</label>
+                <div class="h6 mb-0">${data.deviceId}</div>
+            </div>
+            <div class="mb-3 pb-3 border-bottom border-secondary">
+                <label class="text-secondary small text-uppercase">Ignition Status</label>
+                <div class="mt-1">
+                    <span class="status-indicator-industrial ${statusClass}">
+                        <div class="status-dot-small"></div>
+                        ${ignitionStatus}
+                    </span>
+                </div>
+            </div>
+            <div class="mb-3 pb-3 border-bottom border-secondary">
+                <label class="text-secondary small text-uppercase">GPS Coordinates</label>
+                <div class="small mt-1">
+                    <div><strong>Lat:</strong> ${data.latitude.toFixed(6)}</div>
+                    <div><strong>Lon:</strong> ${data.longitude.toFixed(6)}</div>
+                </div>
+            </div>
+            <div class="mb-0">
+                <label class="text-secondary small text-uppercase">Last Transmission</label>
+                <div class="small mt-1">${new Date(data.timestamp).toLocaleString()}</div>
+            </div>
+        `;
+        document.getElementById('vehicleDetails').innerHTML = detailsHtml;
+        document.getElementById('coordinates').textContent = 
+            `Coordinates: ${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+        
+        // Hide map placeholder when we have valid data
+        document.getElementById('mapPlaceholder').classList.add('d-none');
+    }
+
+    function updateDataTable(data) {
+        // Add new data to history
+        dataHistory.unshift(data);
+        if (dataHistory.length > maxHistoryItems) {
+            dataHistory = dataHistory.slice(0, maxHistoryItems);
+        }
+
+        const tableHtml = dataHistory.map(item => {
+            const ignitionIcon = item.ignitionStatus ? 
+                '<span class="status-indicator-industrial status-online"><div class="status-dot-small"></div>ON</span>' : 
+                '<span class="status-indicator-industrial status-offline"><div class="status-dot-small"></div>OFF</span>';
+            
+            return `
+                <tr>
+                    <td>${new Date(item.timestamp).toLocaleString()}</td>
+                    <td><strong>${item.speed}</strong> km/h</td>
+                    <td>${item.heading}°</td>
+                    <td>${Math.round(item.fuel)}%</td>
+                    <td>${item.engineHours.toLocaleString()}</td>
+                    <td>${ignitionIcon}</td>
+                </tr>
+            `;
+        }).join('');
+
+        document.getElementById('dataTable').innerHTML = tableHtml;
+        document.getElementById('recordCount').textContent = `${dataHistory.length} records`;
+    }
+
+    function updateLastUpdated() {
+        const now = new Date();
+        document.getElementById('lastUpdated').innerHTML = 
+            `<i class="fas fa-clock me-1"></i>Last updated: ${now.toLocaleTimeString()}`;
+    }
+
+    // Initialize dashboard
+    updateSystemTime();
+    setInterval(updateSystemTime, 1000);
+    
+    // Initialize map
+    initializeMap();
+    
+    // Initial dashboard load
+    updateDashboard();
+    
+    // Update dashboard every 5 seconds to fetch real data from database
+    setInterval(updateDashboard, 5000);
+</script>
+}

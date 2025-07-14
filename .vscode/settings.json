@@ -1,0 +1,41 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["appsettings.json", "appsettings.*.json"],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ConnectionStrings": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "Database": {
+            "type": "object",
+            "properties": {
+              "TableName": {
+                "type": "string"
+              }
+            }
+          },
+          "Logging": {
+            "type": "object",
+            "properties": {
+              "LogLevel": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": ["Trace", "Debug", "Information", "Warning", "Error", "Critical", "None"]
+                }
+              }
+            }
+          },
+          "AllowedHosts": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

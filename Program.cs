@@ -1,30 +1,27 @@
 using TryConsoleApp.Services;
 
-namespace TryConsoleApp
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllersWithViews();
+builder.Services.AddSingleton<FMC650Generator>();
+builder.Services.AddScoped<DatabaseService>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+if (!app.Environment.IsDevelopment())
 {
-    class Program
-    {
-        static void Main(string[] args)
-        {
-            Console.WriteLine("Starting FMC650 Data Publisher...");
-            
-            using var receivingService = new DataReceivingService("amqp://localhost");
-            receivingService.StartListening();
-            using var publishingService = new DataPublishingService("vehicle001");
-            
-            Console.WriteLine("Press 'q' to quit...");
-            
-            // Keep the application running until user presses 'q'
-            while (true)
-            {
-                var key = Console.ReadKey(true);
-                if (key.KeyChar == 'q' || key.KeyChar == 'Q')
-                {
-                    break;
-                }
-            }
-            
-            Console.WriteLine("Stopping publisher...");
-        }
-    }
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
 }
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Dashboard}/{action=Index}/{id?}");
+
+app.Run();
