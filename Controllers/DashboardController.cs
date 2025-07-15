@@ -6,11 +6,11 @@ namespace TryConsoleApp.Controllers
 {
     public class DashboardController : Controller
     {
-        private readonly DatabaseService _databaseService;
+        private readonly ApiService _apiService;
 
-        public DashboardController(DatabaseService databaseService)
+        public DashboardController(ApiService apiService)
         {
-            _databaseService = databaseService;
+            _apiService = apiService;
         }
 
         public IActionResult Index()
@@ -23,7 +23,7 @@ namespace TryConsoleApp.Controllers
         {
             try
             {
-                var data = await _databaseService.GetLatestDataAsync();
+                var data = await _apiService.GetLatestDataAsync();
                 
                 if (data != null)
                 {
@@ -32,7 +32,7 @@ namespace TryConsoleApp.Controllers
                 else
                 {
                     return Json(new { 
-                        message = "No data available from database", 
+                        message = "No data available from API", 
                         status = "no_data",
                         timestamp = DateTime.UtcNow 
                     });
@@ -41,7 +41,37 @@ namespace TryConsoleApp.Controllers
             catch (Exception ex)
             {
                 return Json(new { 
-                    message = $"Database error: {ex.Message}", 
+                    message = $"API error: {ex.Message}", 
+                    status = "error",
+                    timestamp = DateTime.UtcNow 
+                });
+            }
+        }
+
+        [HttpGet]
+        public async Task<JsonResult> GetMultipleData(int limit = 5)
+        {
+            try
+            {
+                var data = await _apiService.GetLatestDataAsync(limit);
+                
+                if (data != null && data.Length > 0)
+                {
+                    return Json(data);
+                }
+                else
+                {
+                    return Json(new { 
+                        message = "No data available from API", 
+                        status = "no_data",
+                        timestamp = DateTime.UtcNow 
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { 
+                    message = $"API error: {ex.Message}", 
                     status = "error",
                     timestamp = DateTime.UtcNow 
                 });

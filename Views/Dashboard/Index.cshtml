@@ -9,7 +9,7 @@
         <div class="col-md-8">
             <h1>
                 <i class="fas fa-radar-dish"></i>
-                FMC650 Industrial Vehicle Monitoring System
+                FMC650 Monitoring System
             </h1>
         </div>
         <div class="col-md-4 text-end">
@@ -483,10 +483,17 @@
     }
 
     function updateDataTable(data) {
-        // Add new data to history
-        dataHistory.unshift(data);
-        if (dataHistory.length > maxHistoryItems) {
-            dataHistory = dataHistory.slice(0, maxHistoryItems);
+        // Check if this timestamp already exists in history
+        const existingEntry = dataHistory.find(item => 
+            new Date(item.timestamp).getTime() === new Date(data.timestamp).getTime()
+        );
+        
+        // Only add data if timestamp is unique
+        if (!existingEntry) {
+            dataHistory.unshift(data);
+            if (dataHistory.length > maxHistoryItems) {
+                dataHistory = dataHistory.slice(0, maxHistoryItems);
+            }
         }
 
         const tableHtml = dataHistory.map(item => {
