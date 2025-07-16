@@ -63,5 +63,38 @@ namespace TryConsoleApp.Services
 
             return null;
         }
+        
+        public async Task<FMC650Data[]?> GetTelemetryDataByTimeRangeAsync(DateTime startTime, DateTime endTime)
+        {
+            try
+            {
+                // Ensure we're working with the correct timezone - treat input as local time
+                var startTimeFormatted = DateTime.SpecifyKind(startTime, DateTimeKind.Local).ToString("yyyy-MM-ddTHH:mm:ss");
+                var endTimeFormatted = DateTime.SpecifyKind(endTime, DateTimeKind.Local).ToString("yyyy-MM-ddTHH:mm:ss");
+                
+                // URL encode the time strings to handle special characters
+                var encodedStartTime = Uri.EscapeDataString(startTimeFormatted);
+                var encodedEndTime = Uri.EscapeDataString(endTimeFormatted);
+                
+                var response = await _httpClient.GetAsync($"{_apiBaseUrl}/telemetry/timerange?startTime={encodedStartTime}&endTime={encodedEndTime}");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonContent = await response.Content.ReadAsStringAsync();
+                    var dataArray = JsonSerializer.Deserialize<FMC650Data[]>(jsonContent, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                    
+                    return dataArray;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"API error: {ex.Message}");
+            }
+
+            return null;
+        }
     }
 }

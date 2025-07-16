@@ -3,14 +3,15 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<!-- Top System Bar -->
+<!-- Page Header -->
 <div class="top-bar">
     <div class="row align-items-center">
         <div class="col-md-8">
             <h1>
-                <i class="fas fa-radar-dish"></i>
-                FMC650 Monitoring System
+                <i class="fas fa-tachometer-alt me-2"></i>
+                Vehicle Monitoring Dashboard
             </h1>
+            <p class="text-secondary mb-0">Real-time vehicle telemetry and system status</p>
         </div>
         <div class="col-md-4 text-end">
             <div class="system-status">
@@ -28,10 +29,10 @@
     <div class="card-header-industrial">
         <div>
             <h2 class="card-title">
-                <i class="fas fa-tachometer-alt"></i>
-                Real-Time Vehicle Metrics
+                <i class="fas fa-chart-line"></i>
+                Vehicle Metrics
             </h2>
-            <p class="card-subtitle">Live telemetry data</p>
+            <p class="card-subtitle">Live telemetry data from vehicle systems</p>
         </div>
         <div id="connectionStatus" class="status-indicator-industrial status-online">
             <div class="status-dot-small"></div>
@@ -59,18 +60,18 @@
             <div class="card-header-industrial">
                 <div>
                     <h2 class="card-title">
-                        <i class="fas fa-map-marked-alt"></i>
-                        Vehicle Location Tracking
+                        <i class="fas fa-map-marker-alt"></i>
+                        Vehicle Location
                     </h2>
-                    <p class="card-subtitle">GPS coordinates and positioning</p>
+                    <p class="card-subtitle">GPS tracking and positioning</p>
                 </div>
             </div>
             
             <div class="map-container-industrial">
                 <div id="vehicleMap"></div>
                 <div class="map-placeholder d-none" id="mapPlaceholder">
-                    <i class="fas fa-satellite"></i>
-                    <h4>Satellite Map Integration</h4>
+                    <i class="fas fa-map"></i>
+                    <h4>Map Loading</h4>
                     <p id="coordinates" class="mb-0">Coordinates: Loading...</p>
                 </div>
             </div>
@@ -83,10 +84,10 @@
             <div class="card-header-industrial">
                 <div>
                     <h2 class="card-title">
-                        <i class="fas fa-car-battery"></i>
+                        <i class="fas fa-info-circle"></i>
                         Vehicle Status
                     </h2>
-                    <p class="card-subtitle">System diagnostics</p>
+                    <p class="card-subtitle">System information and diagnostics</p>
                 </div>
             </div>
             
@@ -102,13 +103,13 @@
     <div class="card-header-industrial">
         <div>
             <h2 class="card-title">
-                <i class="fas fa-stream"></i>
-                Live Data Stream
+                <i class="fas fa-table"></i>
+                Data Stream
             </h2>
             <p class="card-subtitle">Historical telemetry records</p>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-primary">Live</span>
+            <span class="badge bg-success">Live</span>
             <span class="text-secondary" id="recordCount">0 records</span>
         </div>
     </div>
@@ -154,12 +155,6 @@
                 zoomControl: true,
                 attributionControl: false
             });
-
-            // Add satellite tile layer
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 18,
-                attribution: 'Satellite imagery'
-            }).addTo(vehicleMap);
 
             // Add street overlay for better context
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -316,9 +311,9 @@
         // Clear other sections
         document.getElementById('vehicleDetails').innerHTML = `
             <div class="text-center py-4">
-                <i class="fas fa-signal fa-3x mb-3 text-secondary"></i>
+                <i class="fas fa-signal fa-3x mb-3 text-muted"></i>
                 <h5>Awaiting Signal</h5>
-                <p class="text-secondary mb-0">Vehicle telemetry offline</p>
+                <p class="text-muted mb-0">Vehicle telemetry offline</p>
             </div>
         `;
         document.getElementById('dataTable').innerHTML = `
@@ -336,7 +331,7 @@
         if (isMapInitialized) {
             document.getElementById('mapPlaceholder').classList.remove('d-none');
             document.getElementById('mapPlaceholder').innerHTML = `
-                <i class="fas fa-satellite-dish"></i>
+                <i class="fas fa-map"></i>
                 <h4>GPS Signal Lost</h4>
                 <p class="mb-0">Waiting for location data...</p>
             `;
@@ -366,7 +361,7 @@
             <div class="text-center py-4">
                 <i class="fas fa-ban fa-3x mb-3 text-warning"></i>
                 <h5>Monitoring Disabled</h5>
-                <p class="text-secondary mb-0">Data visualization turned off</p>
+                <p class="text-muted mb-0">Data visualization turned off</p>
             </div>
         `;
         document.getElementById('dataTable').innerHTML = `

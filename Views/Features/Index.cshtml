@@ -1,0 +1,1009 @@
+@{
+    ViewData["Title"] = "Time Range Tracking";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="time-tracking-container">
+    <!-- Page Header -->
+    <div class="top-bar">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1>
+                    <i class="fas fa-clock me-2"></i>
+                    Time Range Tracking
+                </h1>
+                <p class="text-secondary mb-0">Track vehicle telemetry data within specified time periods</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="system-status">
+                    <div class="status-dot"></div>
+                    <span>Live System</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time Range Selection -->
+    <div class="dashboard-card">
+        <div class="card-header-industrial">
+            <div>
+                <h2 class="card-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Select Time Range
+                </h2>
+                <p class="card-subtitle">Choose start and end times for data analysis</p>
+            </div>
+        </div>
+        
+        <div class="time-controls">
+            <div class="row">
+                <div class="col-md-5">
+                    <div class="time-input-group">
+                        <label for="startTime" class="form-label">
+                            <i class="fas fa-play me-2"></i>Start Time
+                        </label>
+                        <input type="datetime-local" id="startTime" class="form-control" 
+                               value="2025-07-15T14:00" />
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="time-input-group">
+                        <label for="endTime" class="form-label">
+                            <i class="fas fa-stop me-2"></i>End Time
+                        </label>
+                        <input type="datetime-local" id="endTime" class="form-control" 
+                               value="2025-08-16T11:00" />
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="time-input-group">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" id="fetchDataBtn" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-2"></i>Fetch Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Time Presets -->
+        <div class="quick-presets">
+            <h6 class="mb-3">Quick Presets:</h6>
+            <div class="preset-buttons">
+                <button class="btn btn-outline-secondary btn-sm" onclick="setTimeRange('1h')">Last Hour</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="setTimeRange('6h')">Last 6 Hours</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="setTimeRange('24h')">Last 24 Hours</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="setTimeRange('7d')">Last 7 Days</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="setTimeRange('30d')">Last 30 Days</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="dashboard-card" style="display: none;">
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-secondary">Fetching telemetry data...</p>
+        </div>
+    </div>
+
+    <!-- Data Results -->
+    <div id="dataResults" class="dashboard-card" style="display: none;">
+        <div class="card-header-industrial">
+            <div>
+                <h2 class="card-title">
+                    <i class="fas fa-chart-line"></i>
+                    Telemetry Data Results
+                </h2>
+                <p class="card-subtitle">Data retrieved for the selected time range</p>
+            </div>
+            <div class="status-indicator-industrial status-online">
+                <div class="status-dot-small"></div>
+                <span id="dataCount">0 Records</span>
+            </div>
+        </div>
+        
+        <div class="data-summary">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <div class="summary-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="summary-content">
+                            <h4 id="totalRecords">0</h4>
+                            <p>Total Records</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <div class="summary-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="summary-content">
+                            <h4 id="timeSpan">--</h4>
+                            <p>Time Span</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <div class="summary-icon">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <div class="summary-content">
+                            <h4 id="avgSpeed">--</h4>
+                            <p>Avg Speed</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Route Map -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="map-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-map-marked-alt me-2"></i>
+                            Route Visualization
+                        </h5>
+                        <div class="map-controls">
+                            <div class="form-check form-switch d-inline-block">
+                                <input class="form-check-input" type="checkbox" id="showAllPoints" checked>
+                                <label class="form-check-label" for="showAllPoints">
+                                    All Points
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="routeMap" class="route-map"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="data-table-container">
+            <div class="table-responsive">
+                <table id="telemetryTable" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Location</th>
+                            <th>Speed</th>
+                            <th>Fuel Level</th>
+                            <th>Engine Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="telemetryTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="errorMessage" class="dashboard-card" style="display: none;">
+        <div class="text-center py-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h3>Error Loading Data</h3>
+            <p class="text-secondary mb-4" id="errorText">Unable to fetch telemetry data. Please try again.</p>
+            <button class="btn btn-outline-primary" onclick="location.reload()">
+                <i class="fas fa-redo me-2"></i>Retry
+            </button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Time range tracking functionality
+    let routeMap = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const fetchDataBtn = document.getElementById('fetchDataBtn');
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const dataResults = document.getElementById('dataResults');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // Initialize map
+        setTimeout(() => {
+            initializeMap();
+        }, 100);
+        
+        // Fetch data button click handler
+        fetchDataBtn.addEventListener('click', function() {
+            const startTime = startTimeInput.value;
+            const endTime = endTimeInput.value;
+            
+            if (!startTime || !endTime) {
+                showError('Please select both start and end times.');
+                return;
+            }
+            
+            if (new Date(startTime) >= new Date(endTime)) {
+                showError('End time must be after start time.');
+                return;
+            }
+            
+            fetchTelemetryData(startTime, endTime);
+        });
+        
+        // Initialize Leaflet map
+        function initializeMap() {
+            try {
+                // Destroy existing map if it exists
+                if (routeMap) {
+                    routeMap.remove();
+                    routeMap = null;
+                }
+                
+                // Create map with performance optimizations
+                routeMap = L.map('routeMap', {
+                    zoomControl: true,
+                    scrollWheelZoom: true,
+                    doubleClickZoom: true,
+                    boxZoom: true,
+                    keyboard: true,
+                    dragging: true,
+                    worldCopyJump: false,
+                    closePopupOnClick: true,
+                    trackResize: true,
+                    inertia: true,
+                    zoomAnimation: false, // Disable zoom animation for better performance
+                    fadeAnimation: false, // Disable fade animation for better performance
+                    markerZoomAnimation: false, // Disable marker zoom animation
+                    preferCanvas: true // Use canvas for better performance with many markers
+                }).setView([0, 0], 2);
+                
+                // Add OpenStreetMap tiles with optimized settings
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18,
+                    minZoom: 2,
+                    tileSize: 256,
+                    zoomOffset: 0,
+                    detectRetina: false, // Disable retina for better performance
+                    updateWhenIdle: true, // Only update when idle
+                    updateWhenZooming: false, // Don't update while zooming
+                    keepBuffer: 2 // Keep minimal buffer for better performance
+                }).addTo(routeMap);
+                
+                // Force map to refresh after initialization
+                setTimeout(() => {
+                    if (routeMap) {
+                        routeMap.invalidateSize();
+                    }
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                // Show error in map container
+                const mapContainer = document.getElementById('routeMap');
+                mapContainer.innerHTML = '<div class="map-error"><i class="fas fa-exclamation-triangle"></i><p>Error loading map</p></div>';
+            }
+        }
+        
+        // Display route on map
+        function displayRouteOnMap(data) {
+            if (!routeMap || !data || data.length === 0) {
+                console.log('Map not initialized or no data');
+                return;
+            }
+            
+            try {
+                // Clear existing markers and polylines more efficiently
+                routeMap.eachLayer(function(layer) {
+                    if (layer instanceof L.Marker || layer instanceof L.Polyline || layer instanceof L.CircleMarker) {
+                        routeMap.removeLayer(layer);
+                    }
+                });
+                
+                // Filter out invalid coordinates
+                const validPoints = data.filter(item => 
+                    item.latitude && item.longitude && 
+                    item.latitude !== 0 && item.longitude !== 0 &&
+                    Math.abs(item.latitude) <= 90 && Math.abs(item.longitude) <= 180
+                );
+                
+                if (validPoints.length === 0) {
+                    console.log('No valid coordinates found');
+                    return;
+                }
+                
+                // Use all valid points for the route line (no optimization for route accuracy)
+                const routeCoordinates = validPoints.map(item => [item.latitude, item.longitude]);
+                const routeLine = L.polyline(routeCoordinates, {
+                    color: '#007bff',
+                    weight: 3,
+                    opacity: 0.8,
+                    smoothFactor: 1.0
+                }).addTo(routeMap);
+                
+                // Store layers for toggle functionality
+                window.allPointLayers = [];
+                
+                // Function to calculate distance between two points (in meters)
+                function calculateDistance(lat1, lon1, lat2, lon2) {
+                    const R = 6371000; // Earth's radius in meters
+                    const dLat = (lat2 - lat1) * Math.PI / 180;
+                    const dLon = (lon2 - lon1) * Math.PI / 180;
+                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                            Math.sin(dLon/2) * Math.sin(dLon/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    return R * c;
+                }
+                
+                // Create start marker
+                const startPoint = validPoints[0];
+                const startMarker = L.marker([startPoint.latitude, startPoint.longitude], {
+                    icon: L.divIcon({
+                        className: 'start-marker',
+                        html: '',
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10],
+                        popupAnchor: [0, -10]
+                    })
+                });
+                
+                const startTimestamp = new Date(startPoint.timestamp).toLocaleString();
+                const startSpeed = startPoint.speed || 0;
+                const startFuel = startPoint.fuel ? startPoint.fuel.toFixed(2) : 'N/A';
+                const startIgnition = startPoint.ignitionStatus ? 'ON' : 'OFF';
+                
+                startMarker.bindPopup(`
+                    <div style="min-width: 200px;">
+                        <strong>Start Point</strong><br>
+                        <hr style="margin: 8px 0;">
+                        <strong>Time:</strong> ${startTimestamp}<br>
+                        <strong>Location:</strong> ${startPoint.latitude.toFixed(4)}, ${startPoint.longitude.toFixed(4)}<br>
+                        <strong>Speed:</strong> ${startSpeed} km/h<br>
+                        <strong>Fuel:</strong> ${startFuel}<br>
+                        <strong>Engine:</strong> ${startIgnition}<br>
+                        <strong>Heading:</strong> ${startPoint.heading || 'N/A'}°
+                    </div>
+                `);
+                startMarker.addTo(routeMap);
+                
+                // Create end marker
+                const endPoint = validPoints[validPoints.length - 1];
+                const endMarker = L.marker([endPoint.latitude, endPoint.longitude], {
+                    icon: L.divIcon({
+                        className: 'end-marker',
+                        html: '',
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10],
+                        popupAnchor: [0, -10]
+                    })
+                });
+                
+                const endTimestamp = new Date(endPoint.timestamp).toLocaleString();
+                const endSpeed = endPoint.speed || 0;
+                const endFuel = endPoint.fuel ? endPoint.fuel.toFixed(2) : 'N/A';
+                const endIgnition = endPoint.ignitionStatus ? 'ON' : 'OFF';
+                
+                endMarker.bindPopup(`
+                    <div style="min-width: 200px;">
+                        <strong>End Point</strong><br>
+                        <hr style="margin: 8px 0;">
+                        <strong>Time:</strong> ${endTimestamp}<br>
+                        <strong>Location:</strong> ${endPoint.latitude.toFixed(4)}, ${endPoint.longitude.toFixed(4)}<br>
+                        <strong>Speed:</strong> ${endSpeed} km/h<br>
+                        <strong>Fuel:</strong> ${endFuel}<br>
+                        <strong>Engine:</strong> ${endIgnition}<br>
+                        <strong>Heading:</strong> ${endPoint.heading || 'N/A'}°
+                    </div>
+                `);
+                endMarker.addTo(routeMap);
+                
+                // Add a small marker for every single point (but very small and subtle)
+                validPoints.forEach(point => {
+                    const circleMarker = L.circleMarker([point.latitude, point.longitude], {
+                        radius: 1,
+                        fillColor: '#007bff',
+                        color: '#007bff',
+                        weight: 1,
+                        opacity: 0.6,
+                        fillOpacity: 0.6
+                    }).bindTooltip(`
+                        Speed: ${point.speed || 0} km/h<br>
+                        Time: ${new Date(point.timestamp).toLocaleString()}
+                    `, {
+                        permanent: false,
+                        direction: 'top'
+                    });
+                    
+                    window.allPointLayers.push(circleMarker);
+                    circleMarker.addTo(routeMap);
+                });
+                
+                // Set up toggle controls
+                setupMapToggleControls();
+                
+                // Store current data for future use
+                window.currentData = data;
+                
+                // Fit map to show entire route
+                routeMap.fitBounds(routeLine.getBounds(), { 
+                    padding: [20, 20],
+                    animate: false
+                });
+                
+            } catch (error) {
+                console.error('Error displaying route:', error);
+                const mapContainer = document.getElementById('routeMap');
+                mapContainer.innerHTML = '<div class="map-error"><i class="fas fa-exclamation-triangle"></i><p>Error displaying route</p></div>';
+            }
+        }
+        
+        // Setup toggle controls for map layers
+        function setupMapToggleControls() {
+            const showAllPoints = document.getElementById('showAllPoints');
+            
+            // Remove any existing event listeners to prevent duplicates
+            const newShowAllPoints = showAllPoints.cloneNode(true);
+            showAllPoints.parentNode.replaceChild(newShowAllPoints, showAllPoints);
+            
+            newShowAllPoints.addEventListener('change', function() {
+                if (window.allPointLayers && routeMap) {
+                    window.allPointLayers.forEach(layer => {
+                        if (this.checked) {
+                            if (!routeMap.hasLayer(layer)) {
+                                layer.addTo(routeMap);
+                            }
+                        } else {
+                            if (routeMap.hasLayer(layer)) {
+                                routeMap.removeLayer(layer);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Fetch telemetry data from API
+        async function fetchTelemetryData(startTime, endTime) {
+            showLoading();
+            
+            try {
+                // Format datetime as local time string without timezone conversion
+                const startDate = new Date(startTime);
+                const endDate = new Date(endTime);
+                
+                // Format as yyyy-MM-ddTHH:mm:ss in local time
+                const formattedStart = formatLocalDateTime(startDate);
+                const formattedEnd = formatLocalDateTime(endDate);
+                
+                const response = await fetch(`/api/telemetry/timerange?startTime=${encodeURIComponent(formattedStart)}&endTime=${encodeURIComponent(formattedEnd)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                displayResults(data, startTime, endTime);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showError('Failed to fetch telemetry data. Please check your connection and try again.');
+            }
+        }
+        
+        // Format datetime as local time string
+        function formatLocalDateTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+        }
+        
+        // Display results
+        function displayResults(data, startTime, endTime) {
+            hideAll();
+            
+            if (!data || data.length === 0) {
+                showError('No data found for the selected time range.');
+                return;
+            }
+            
+            // Update summary cards
+            document.getElementById('totalRecords').textContent = data.length;
+            document.getElementById('dataCount').textContent = `${data.length} Records`;
+            
+            // Calculate time span
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            const timeSpanMs = end - start;
+            const timeSpanHours = Math.round(timeSpanMs / (1000 * 60 * 60));
+            document.getElementById('timeSpan').textContent = `${timeSpanHours}h`;
+            
+            // Calculate average speed
+            const avgSpeed = data.reduce((sum, item) => sum + (item.speed || 0), 0) / data.length;
+            document.getElementById('avgSpeed').textContent = `${avgSpeed.toFixed(1)} km/h`;
+            
+            // Show results first
+            dataResults.style.display = 'block';
+            
+            // Show map loading indicator
+            const mapContainer = document.getElementById('routeMap');
+            mapContainer.innerHTML = '<div class="map-loading"><i class="fas fa-spinner fa-spin"></i><p>Loading route...</p></div>';
+            
+            // Load map asynchronously to prevent blocking UI
+            setTimeout(() => {
+                // Clear the loading indicator and reinitialize the map
+                mapContainer.innerHTML = '';
+                
+                // Destroy existing map if it exists
+                if (routeMap) {
+                    routeMap.remove();
+                    routeMap = null;
+                }
+                
+                // Reinitialize the map
+                initializeMap();
+                
+                // Display the route
+                displayRouteOnMap(data);
+            }, 100);
+            
+            // Populate table
+            const tableBody = document.getElementById('telemetryTableBody');
+            tableBody.innerHTML = '';
+            
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(item.timestamp).toLocaleString()}</td>
+                    <td>${item.latitude?.toFixed(4) || '--'}, ${item.longitude?.toFixed(4) || '--'}</td>
+                    <td>${item.speed || '--'} km/h</td>
+                    <td>${item.fuel ? item.fuel.toFixed(2) : '--'}</td>
+                    <td><span class="badge ${item.ignitionStatus ? 'bg-success' : 'bg-danger'}">${item.ignitionStatus ? 'ON' : 'OFF'}</span></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // Show loading state
+        function showLoading() {
+            hideAll();
+            loadingIndicator.style.display = 'block';
+        }
+        
+        // Show error message
+        function showError(message) {
+            hideAll();
+            document.getElementById('errorText').textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        // Hide all result sections
+        function hideAll() {
+            loadingIndicator.style.display = 'none';
+            dataResults.style.display = 'none';
+            errorMessage.style.display = 'none';
+        }
+    });
+    
+    // Quick preset functions
+    function setTimeRange(preset) {
+        const now = new Date();
+        const startTime = new Date(now);
+        switch(preset) {
+            case '1h':
+                startTime.setHours(now.getHours() - 1);
+                break;
+            case '6h':
+                startTime.setHours(now.getHours() - 6);
+                break;
+            case '24h':
+                startTime.setDate(now.getDate() - 1);
+                break;
+            case '7d':
+                startTime.setDate(now.getDate() - 7);
+                break;
+            case '30d':
+                startTime.setDate(now.getDate() - 30);
+                break;
+        }
+        function formatLocalInputValue(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        document.getElementById('startTime').value = formatLocalInputValue(startTime);
+        document.getElementById('endTime').value = formatLocalInputValue(now);
+    }
+</script>
+
+<style>
+    .time-tracking-container {
+        animation: fadeIn 0.6s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .time-controls {
+        padding: 2rem;
+        background: var(--secondary-bg);
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+
+    .time-input-group {
+        margin-bottom: 1rem;
+    }
+
+    .time-input-group label {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .time-input-group .form-control {
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-size: 0.95rem;
+        transition: border-color 0.3s ease;
+    }
+
+    .time-input-group .form-control:focus {
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .quick-presets {
+        border-top: 1px solid var(--border-color);
+        padding-top: 1.5rem;
+    }
+
+    .preset-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .preset-buttons .btn {
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+
+    .preset-buttons .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .data-summary {
+        margin-bottom: 2rem;
+    }
+
+    .summary-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: transform 0.3s ease;
+        height: 100%;
+    }
+
+    .summary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .summary-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent-blue), #60a5fa);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .summary-icon i {
+        color: white;
+        font-size: 1.25rem;
+    }
+
+    .summary-content h4 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .summary-content p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .data-table-container {
+        background: var(--card-bg);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .map-container {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .map-container h5 {
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .route-map {
+        height: 400px;
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+
+    .map-loading {
+        height: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: var(--secondary-bg);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+    }
+
+    .map-loading i {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: var(--accent-blue);
+    }
+
+    .map-loading p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .map-error {
+        height: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: var(--secondary-bg);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+    }
+
+    .map-error i {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: var(--accent-red);
+    }
+
+    .map-error p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .start-marker, .end-marker, .waypoint-marker {
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: var(--text-primary);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        position: relative;
+        transform: translate(-50%, -50%);
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .start-marker {
+        background: var(--accent-green);
+        color: white;
+        border-color: var(--accent-green);
+        width: 20px;
+        height: 20px;
+    }
+
+    .start-marker::before {
+        content: '';
+        width: 0;
+        height: 0;
+        border-left: 4px solid white;
+        border-top: 3px solid transparent;
+        border-bottom: 3px solid transparent;
+        margin-left: 1px;
+    }
+
+    .end-marker {
+        background: var(--accent-red);
+        color: white;
+        border-color: var(--accent-red);
+        width: 20px;
+        height: 20px;
+    }
+
+    .end-marker::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        background: white;
+        border-radius: 1px;
+    }
+
+    .waypoint-marker {
+        background: var(--accent-blue);
+        color: white;
+        border-color: var(--accent-blue);
+        width: 12px;
+        height: 12px;
+        border-width: 1px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .waypoint-marker::before {
+        content: '';
+        width: 4px;
+        height: 4px;
+        background: white;
+        border-radius: 50%;
+    }
+
+    .cluster-marker {
+        background: var(--accent-blue);
+        color: white;
+        border: 2px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: bold;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        position: relative;
+        transform: translate(-50%, -50%);
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 0.9;
+    }
+
+    .cluster-marker:hover {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+        transition: all 0.2s ease;
+    }
+
+    .cluster-count {
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+    }
+
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px;
+    }
+
+    .leaflet-popup-content {
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        background: var(--secondary-bg);
+        border-bottom: 2px solid var(--border-color);
+        font-weight: 600;
+        color: var(--text-primary);
+        padding: 1rem;
+    }
+
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .table tbody tr:hover {
+        background: var(--secondary-bg);
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    .status-indicator-industrial {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(40, 167, 69, 0.1);
+        border: 1px solid rgba(40, 167, 69, 0.3);
+        border-radius: 20px;
+        color: var(--accent-green);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .status-dot-small {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent-green);
+        animation: pulse 2s infinite;
+    }
+
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+        .time-controls {
+            padding: 1.5rem;
+        }
+        
+        .preset-buttons {
+            justify-content: center;
+        }
+        
+        .summary-card {
+            margin-bottom: 1rem;
+            text-align: center;
+            flex-direction: column;
+        }
+        
+        .summary-icon {
+            margin-bottom: 0.5rem;
+        }
+        
+        .route-map {
+            height: 300px;
+        }
+        
+        .map-container {
+            padding: 1rem;
+        }
+    }
+</style>
+}
